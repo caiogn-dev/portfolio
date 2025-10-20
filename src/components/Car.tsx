@@ -7,11 +7,18 @@ import * as THREE from "three";
 import { useKeyboardControls } from "@react-three/drei";
 import { create } from "zustand";
 import CarModel from "./CarModel";
+
 type CarState = { speedKmh: number; setSpeed: (v: number) => void };
 export const useCarStore = create<CarState>((set) => ({
   speedKmh: 0,
   setSpeed: (v) => set({ speedKmh: v }),
 }));
+
+// helper de easing exponencial (sem dependências)
+function damp(current: number, target: number, lambda: number, dt: number) {
+  // retorna próximo valor suavizado (lambda ~ 10-16 para respostas rápidas)
+  return THREE.MathUtils.lerp(current, target, 1 - Math.exp(-lambda * dt));
+}
 
 export default function Car() {
   const ref = useRef<any>(null);
@@ -19,68 +26,88 @@ export default function Car() {
   const [dir] = useState(() => new THREE.Vector3());
   const setSpeed = useCarStore((s) => s.setSpeed);
 
+  // estados suavizados de entrada
+  const steerRef = useRef(0);     // -1..1
+  const throttleRef = useRef(0);  // -1..1
+
+  // throttle p/ HUD (evita publish por frame)
+  const lastHudRef = useRef(0);
+
+  // suavização do lookAt (evita jitter)
+  const lookRef = useRef(new THREE.Vector3());
+
   useFrame((state, delta) => {
     const body = ref.current;
     if (!body) return;
 
+    // ===== INPUT =====
     const { forward, backward, left, right, boost } = getKeys();
 
-    // --- parâmetros arcade estáveis ---
-    const accelFwd = boost ? 26 : 12;  // força pra frente
-    const accelRev = 12;               // força pra ré
-    const brake    = 30;               // força de freio
-    const maxFwdK = boost ? 75 : 50;   // km/h
-    const maxRevK = 28;                // km/h
-    const steerBase = 2.0;             // torque de direção
-    const idleFriction = 0.986;
-    const angDamping = 0.95;
-    // ----------------------------------
+    const steerTarget = (left ? 1 : right ? -1 : 0);            // esquerda +, direita -
+    const throttleTarget = forward ? 1 : backward ? -1 : 0;     // frente +, ré -
 
-    // orientação do carro
+    // damping nas entradas (resposta rápida porém suave)
+    steerRef.current = damp(steerRef.current, steerTarget, 12, delta);
+    throttleRef.current = damp(throttleRef.current, throttleTarget, 14, delta);
+
+    // ===== PARAMS =====
+    const accelFwd = boost ? 26 : 12;
+    const accelRev = 12;
+    const brake    = 30;
+    const maxFwdK = boost ? 75 : 50;
+    const maxRevK = 28;
+    const steerBase = 2.0;
+    const idleFriction = 0.986;
+
+    // ===== DIREÇÃO / VELOCIDADE =====
     const r = body.rotation();
     const quat = new THREE.Quaternion(r.x, r.y, r.z, r.w).normalize();
     dir.set(0, 0, -1).applyQuaternion(quat).normalize();
 
-    // velocidade atual
     const lv = body.linvel();
     const vel = new THREE.Vector3(lv.x, lv.y, lv.z);
-    const speed = vel.length(); // m/s
-    const vForward = vel.dot(dir); // componente na frente (+) ou ré (-)
+    const speedMs = vel.length();
+    const vForward = vel.dot(dir);
 
-    // lógica de entrada: freia antes de inverter
-    if (forward && !backward) {
-      // se está indo pra trás, freia até parar; depois acelera
+    // ===== APLICAÇÃO DE FORÇAS =====
+    // lógica de "freia antes de inverter"
+    const wantFwd = throttleRef.current > 0.15;
+    const wantRev = throttleRef.current < -0.15;
+
+    if (wantFwd) {
       if (vForward < 0) {
         body.applyImpulse(
           { x: dir.x * brake * delta, y: 0, z: dir.z * brake * delta },
           true
         );
       } else {
+        const a = accelFwd * Math.min(1, Math.abs(throttleRef.current));
         body.applyImpulse(
-          { x: dir.x * accelFwd * delta, y: 0, z: dir.z * accelFwd * delta },
+          { x: dir.x * a * delta, y: 0, z: dir.z * a * delta },
           true
         );
       }
-    } else if (backward && !forward) {
-      // se está indo pra frente, freia até parar; depois ré
+    } else if (wantRev) {
       if (vForward > 0) {
         body.applyImpulse(
           { x: -dir.x * brake * delta, y: 0, z: -dir.z * brake * delta },
           true
         );
       } else {
+        const a = accelRev * Math.min(1, Math.abs(throttleRef.current));
         body.applyImpulse(
-          { x: -dir.x * accelRev * delta, y: 0, z: -dir.z * accelRev * delta },
+          { x: -dir.x * a * delta, y: 0, z: -dir.z * a * delta },
           true
         );
       }
     } else {
-      // rolando sem acelerar
+      // rolagem
       body.setLinvel({ x: vel.x * idleFriction, y: vel.y, z: vel.z * idleFriction }, true);
     }
 
-    // limites de velocidade (separado p/ frente e ré)
-    const maxFwd = maxFwdK / 3.6, maxRev = maxRevK / 3.6;
+    // limites de velocidade
+    const maxFwd = maxFwdK / 3.6;
+    const maxRev = maxRevK / 3.6;
     if (vForward > maxFwd) {
       const excess = vForward - maxFwd;
       const corr = dir.clone().multiplyScalar(excess);
@@ -93,15 +120,17 @@ export default function Car() {
       body.setLinvel({ x: newVel.x, y: newVel.y, z: newVel.z }, true);
     }
 
-    // direção: escala com |vForward| e inverte em ré
+    // esterço com damping e inversão em ré
     const movingSign = vForward >= 0 ? 1 : -1;
     const steerScale = THREE.MathUtils.clamp(Math.abs(vForward) / 8, 0.3, 1.2);
-    if (left)  body.applyTorqueImpulse({ x: 0, y:  steerBase * steerScale * movingSign * delta, z: 0 }, true);
-    if (right) body.applyTorqueImpulse({ x: 0, y: -steerBase * steerScale * movingSign * delta, z: 0 }, true);
+    const steerNow = steerRef.current * steerBase * steerScale * movingSign;
+    if (Math.abs(steerNow) > 0.001) {
+      body.applyTorqueImpulse({ x: 0, y: steerNow * delta, z: 0 }, true);
+    }
 
-    // segura rotação
+    // segura rotação lateral (estabilidade)
     const av = body.angvel();
-    body.setAngvel({ x: av.x * angDamping, y: av.y * 0.98, z: av.z * angDamping }, true);
+    body.setAngvel({ x: av.x * 0.92, y: av.y * 0.98, z: av.z * 0.92 }, true);
 
     // anti-queda
     const tr = body.translation();
@@ -111,33 +140,40 @@ export default function Car() {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
 
-    // HUD
-    useCarStore.getState().setSpeed(speed * 3.6);
+    // ===== HUD (throttle ~12Hz) =====
+    const now = performance.now();
+    if (now - lastHudRef.current > 80) { // ~12.5Hz
+      lastHudRef.current = now;
+      setSpeed(speedMs * 3.6);
+    }
 
-    // câmera follow
+    // ===== CÂMERA FOLLOW SUAVE =====
     const target = new THREE.Vector3(tr.x, tr.y, tr.z);
     const behind = dir.clone().multiplyScalar(-7);
     const desired = target.clone().add(behind).add(new THREE.Vector3(0, 3, 0));
-    if (Number.isFinite(desired.x) && Number.isFinite(desired.y) && Number.isFinite(desired.z)) {
-      state.camera.position.lerp(desired, 0.12);
-      state.camera.lookAt(target);
-    }
+
+    // fator de suavização (independente do FPS)
+    const f = 1 - Math.exp(-8 * delta); // 8 ~ mais “presa” no carro
+    state.camera.position.lerp(desired, f);
+
+    // suaviza o ponto de lookAt para evitar tremedeira
+    lookRef.current.lerp(target, f);
+    state.camera.lookAt(lookRef.current);
   });
 
   return (
     <RigidBody
-    ref={ref}
-    mass={1.2}
-    linearDamping={0.45}
-    angularDamping={0.9}
-    position={[0, 0.6, 0]}
-    colliders="cuboid"
-    restitution={0}
-    friction={1}
+      ref={ref}
+      mass={1.2}
+      linearDamping={0.45}
+      angularDamping={0.9}
+      position={[0, 0.6, 0]}
+      colliders="cuboid"
+      restitution={0}
+      friction={1}
     >
-    <pointLight position={[0, -0.1, 0]} intensity={3} distance={6} color={"#00e5ff"} />
-    <CarModel scale={0.5} position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]} />
+      <pointLight position={[0, -0.1, 0]} intensity={3} distance={6} color={"#00e5ff"} />
+      <CarModel scale={0.5} position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]} />
     </RigidBody>
-
   );
 }

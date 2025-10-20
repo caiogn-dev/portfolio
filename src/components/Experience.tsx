@@ -1,4 +1,3 @@
-// src/components/Experience.tsx
 "use client";
 
 import { Suspense, useMemo, useState, useCallback } from "react";
@@ -29,8 +28,6 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
-  // Quando modal abre, podemos desativar interações no Canvas (pointer-events none)
-  // e/ou desmontar KeyboardControls para evitar hotkeys enquanto navega no site.
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       {!modalOpen ? (
@@ -53,14 +50,32 @@ export default function Experience() {
           >
             <color attach="background" args={["#07080f"]} />
             <fog attach="fog" args={["#07080f", 25, 140]} />
+
+            {/* Se não tiver o arquivo no /public/hdris, troque por preset="studio" */}
             <Environment files="/hdris/studio_small_08_4k.exr" background={false} />
+
             <ambientLight intensity={0.15} />
-            <directionalLight position={[10, 15, 10]} intensity={0.6} castShadow={enableShadows} shadow-mapSize={[1024, 1024]} />
+            <directionalLight
+              position={[10, 15, 10]}
+              intensity={0.6}
+              castShadow={enableShadows}
+              shadow-mapSize={[1024, 1024]}
+              shadow-camera-far={60}
+              shadow-bias={-0.0005}
+            />
+
             <AdaptiveDpr />
+
             <Suspense fallback={<Html center>carregando neon…</Html>}>
-              <Physics gravity={[0, -9.81, 0]}>
+              <Physics
+                gravity={[0, -9.81, 0]}
+                timeStep={1 / 60}          // ✅ step fixo (60Hz)
+                updateLoop="independent"   // ✅ física independente do render
+                interpolate                // ✅ interpola visualmente entre steps
+              >
                 <World />
                 <Car />
+
                 {projects.map((p) => (
                   <ProjectBillboard
                     key={p.slug}
@@ -69,27 +84,27 @@ export default function Experience() {
                     position={p.position}
                     tags={p.tags}
                     thumb={p.thumb}
-                    url={p.url}  
-                    onOpenSite={() => handleOpenSite(p)} // <- clique abre modal
+                    url={p.url}
+                    onOpenSite={() => handleOpenSite(p)}
                   />
                 ))}
               </Physics>
+
               <Preload all />
+
               <EffectComposer multisampling={0}>
                 <SMAA />
-                <Bloom intensity={0.5} mipmapBlur luminanceThreshold={0.7} luminanceSmoothing={0.2} />
+                <Bloom intensity={0.46} mipmapBlur luminanceThreshold={0.78} luminanceSmoothing={0.2} />
                 <ChromaticAberration offset={[0.0009, 0.0009]} />
                 <Vignette eskil={false} offset={0.12} darkness={0.6} />
               </EffectComposer>
             </Suspense>
           </Canvas>
+
           <Loader />
           <HUD />
         </KeyboardControls>
       ) : (
-        // Se quiser manter o Canvas visível ao fundo mas "congelado",
-        // você pode continuar renderizando aqui com pointer-events: none;
-        // ou colocar uma thumbnail/gradiente por trás.
         <div className="w-full h-full bg-[#07080f]" />
       )}
 
