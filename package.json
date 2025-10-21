@@ -24,11 +24,8 @@
     "react-joystick-component": "^6.2.1",
     "tailwind-merge": "^3.3.1",
     "three": "^0.180.0",
-    "tailwind-merge": "^3.3.1",
-    "three": "^0.180.0",
     "uuid": "^13.0.0",
     "ws": "^8.18.3",
-    "react-joystick-component": "^6.2.1",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -36,6 +33,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.180.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.38.0",
     "eslint-config-next": "^15.5.6",

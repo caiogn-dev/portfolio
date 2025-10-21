@@ -1,8 +1,6 @@
-"use client";
-
 import { useGLTF } from "@react-three/drei";
-import { RigidBody } from "@react-three/rapier";
-import { useRef } from "react";
+import { RigidBody, RapierRigidBody, vec3 } from "@react-three/rapier";
+import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import type { GLTF } from "three-stdlib";
 import type { ThreeElements } from "@react-three/fiber";
@@ -28,20 +26,23 @@ type GLTFResult = GLTF & { scene: THREE.Group };
 
 export default function OtherPlayerCar({ player, ...props }: OtherPlayerCarProps) {
   const { scene } = useGLTF("/models/car_compressed.glb") as GLTFResult;
-  const ref = useRef<any>(null);
+  const rigidBodyRef = useRef<RapierRigidBody>(null);
 
-  // Update position and rotation based on player state
-  // This will run every frame, but only update if player state changes
-  // For smoother movement, you might want to interpolate between states
-  if (ref.current) {
-    ref.current.setTranslation(new THREE.Vector3(player.x, player.y, player.z), true);
-    ref.current.setRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(player.rx, player.ry, player.rz)), true);
-  }
+  useEffect(() => {
+    if (rigidBodyRef.current) {
+      const { x, y, z, rx, ry, rz } = player;
+      const body = rigidBodyRef.current;
+      body.setNextKinematicTranslation(vec3({ x, y, z }));
+      body.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)));
+    }
+  }, [player]);
 
   return (
     <RigidBody
-      ref={ref}
+      // @ts-ignore
+      ref={rigidBodyRef}
       colliders="cuboid"
+      // @ts-ignore
       type="kinematicPosition"
       position={[player.x, player.y, player.z]}
       rotation={[player.rx, player.ry, player.rz]}
