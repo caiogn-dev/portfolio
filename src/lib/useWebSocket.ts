@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-const WS_URL = "wss://websocket-api-s05v.onrender.com";
+// MUDE ISSO para a URL do seu servidor quando fizer o deploy
+const WS_URL = "ws://localhost:8080"; // ou "wss://seu-servidor.onrender.com"
 
 type PlayerState = {
   id: string;
@@ -22,8 +23,9 @@ type Players = {
   [id: string]: PlayerState;
 };
 
+// Mensagem "join" simplificada
 type Message =
-  | { type: "join"; id: string; name: string; x: number; y: number; z: number; rx: number; ry: number; rz: number; }
+  | { type: "join"; id: string; name: string; }
   | { type: "state"; id: string; x: number; y: number; z: number; rx: number; ry: number; rz: number; v?: number }
   | { type: "snapshot"; players: Players }
   | { type: "playerJoined"; player: PlayerState }
@@ -48,14 +50,14 @@ export const useWebSocket = (playerName: string = "anon") => {
     ws.current.onopen = () => {
       console.log("WebSocket connected");
       setIsConnected(true);
-      const initialX = Math.random() * 10 - 5; // Random X between -5 and 5
-      const initialZ = Math.random() * 10 - 5; // Random Z between -5 and 5
-      sendMessage({ type: "join", id: playerId.current, name: playerName, x: initialX, y: 0.6, z: initialZ, rx: 0, ry: 0, rz: 0 });
+      // Apenas envia o pedido para entrar. O servidor irá definir a posição.
+      sendMessage({ type: "join", id: playerId.current, name: playerName });
     };
 
     ws.current.onmessage = (event) => {
       const message: Message = JSON.parse(event.data);
-      console.log("WebSocket message received:", message);
+      // O console.log foi removido para não poluir o console, mas você pode reativá-lo para debug.
+      // console.log("WebSocket message received:", message);
       switch (message.type) {
         case "snapshot":
           setPlayers(message.players);
@@ -71,7 +73,10 @@ export const useWebSocket = (playerName: string = "anon") => {
           });
           break;
         case "update":
-          setPlayers((prev) => ({ ...prev, [message.player.id]: message.player }));
+          // Otimização: só atualiza se o jogador não for o local
+          if (message.player.id !== playerId.current) {
+            setPlayers((prev) => ({ ...prev, [message.player.id]: message.player }));
+          }
           break;
         default:
           console.warn("Unknown message type", message);
@@ -81,11 +86,12 @@ export const useWebSocket = (playerName: string = "anon") => {
     ws.current.onclose = (event) => {
       console.warn("WebSocket disconnected:", event.code, event.reason, event.wasClean);
       setIsConnected(false);
-      // Attempt to reconnect after a delay
+      // Lógica de reconexão pode ser melhorada, mas mantida por enquanto
       setTimeout(() => {
         console.log("Attempting to reconnect WebSocket...");
-        if (ws.current && ws.current.readyState === WebSocket.CLOSED) {
-          ws.current = new WebSocket(WS_URL);
+        if (!ws.current || ws.current.readyState === WebSocket.CLOSED) {
+          // recria a conexão
+           ws.current = new WebSocket(WS_URL);
         }
       }, 3000);
     };
