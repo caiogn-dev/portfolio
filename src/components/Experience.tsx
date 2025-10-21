@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { Suspense, useMemo, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   KeyboardControls,
@@ -24,13 +24,12 @@ import ProjectBillboard from "./ProjectBillboard";
 import SiteModal from "./SiteModal";
 import HUD from "./HUD";
 import { projects, type Project } from "@/data/projects";
+import { Joystick } from "react-joystick-component";
 
 export default function Experience() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const joystickRef = useRef<HTMLDivElement>(null);
-  const knobRef = useRef<HTMLDivElement>(null);
 
   const isLowPower = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -39,6 +38,7 @@ export default function Experience() {
 
   const enableShadows = true;
 
+  // Detecta mobile
   useEffect(() => {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
@@ -50,7 +50,7 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
-  // Simula teclas
+  // Função que simula eventos de teclado
   const simulateKey = useCallback((key: string, down: boolean) => {
     const event = new KeyboardEvent(down ? "keydown" : "keyup", {
       key,
@@ -60,65 +60,18 @@ export default function Experience() {
     document.dispatchEvent(event);
   }, []);
 
-  // --- JOYSTICK ANALÓGICO ---
-  useEffect(() => {
-    if (!isMobile) return;
+  // --- Joystick handlers ---
+  const handleMove = (data: any) => {
+    const { x, y } = data;
+    simulateKey("KeyW", y > 0.3);
+    simulateKey("KeyS", y < -0.3);
+    simulateKey("KeyA", x < -0.3);
+    simulateKey("KeyD", x > 0.3);
+  };
 
-    const joystick = joystickRef.current;
-    const knob = knobRef.current;
-    if (!joystick || !knob) return;
-
-    let active = false;
-    let center = { x: 0, y: 0 };
-
-    const handleStart = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      const rect = joystick.getBoundingClientRect();
-      center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      active = true;
-    };
-
-    const handleMove = (e: TouchEvent) => {
-      if (!active) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - center.x;
-      const dy = touch.clientY - center.y;
-      const distance = Math.min(Math.hypot(dx, dy), 40);
-      const angle = Math.atan2(dy, dx);
-      const x = Math.cos(angle) * distance;
-      const y = Math.sin(angle) * distance;
-      knob.style.transform = `translate(${x}px, ${y}px)`;
-
-      // Direções simuladas
-      const up = dy < -10;
-      const down = dy > 10;
-      const left = dx < -10;
-      const right = dx > 10;
-
-      simulateKey("KeyW", up);
-      simulateKey("KeyS", down);
-      simulateKey("KeyA", left);
-      simulateKey("KeyD", right);
-    };
-
-    const handleEnd = () => {
-      active = false;
-      knob.style.transform = "translate(0px, 0px)";
-      ["KeyW", "KeyS", "KeyA", "KeyD"].forEach((k) => simulateKey(k, false));
-    };
-
-    joystick.addEventListener("touchstart", handleStart);
-    joystick.addEventListener("touchmove", handleMove);
-    joystick.addEventListener("touchend", handleEnd);
-    joystick.addEventListener("touchcancel", handleEnd);
-
-    return () => {
-      joystick.removeEventListener("touchstart", handleStart);
-      joystick.removeEventListener("touchmove", handleMove);
-      joystick.removeEventListener("touchend", handleEnd);
-      joystick.removeEventListener("touchcancel", handleEnd);
-    };
-  }, [isMobile, simulateKey]);
+  const handleStop = () => {
+    ["KeyW", "KeyS", "KeyA", "KeyD"].forEach((k) => simulateKey(k, false));
+  };
 
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
@@ -207,24 +160,24 @@ export default function Experience() {
           <Loader />
           <HUD />
 
-          {/* ✅ Mobile joystick + acelerador */}
+          {/* ✅ Joystick + Acelerador (mobile) */}
           {isMobile && (
             <div className="fixed inset-0 z-[100] pointer-events-none select-none">
-              {/* Joystick circular */}
-              <div
-                ref={joystickRef}
-                className="absolute bottom-8 left-6 w-32 h-32 bg-white/10 rounded-full backdrop-blur-md pointer-events-auto flex items-center justify-center shadow-lg"
-              >
-                <div
-                  ref={knobRef}
-                  className="w-16 h-16 bg-white/40 rounded-full shadow-inner transition-transform duration-75"
+              {/* Joystick à esquerda */}
+              <div className="absolute bottom-8 left-6 pointer-events-auto flex items-center justify-center">
+                <Joystick
+                  size={120}
+                  baseColor="rgba(255,255,255,0.15)"
+                  stickColor="rgba(255,255,255,0.9)"
+                  move={handleMove}
+                  stop={handleStop}
                 />
               </div>
 
-              {/* Botão acelerador */}
-              <div className="absolute bottom-12 right-8 pointer-events-auto">
+              {/* Botão de boost à direita */}
+              <div className="absolute bottom-14 right-10 pointer-events-auto">
                 <button
-                  className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center"
+                  className="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white text-2xl shadow-2xl active:scale-95 transition-transform flex items-center justify-center"
                   onTouchStart={() => simulateKey("ShiftLeft", true)}
                   onTouchEnd={() => simulateKey("ShiftLeft", false)}
                 >
