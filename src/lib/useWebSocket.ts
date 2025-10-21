@@ -48,7 +48,9 @@ export const useWebSocket = (playerName: string = "anon") => {
     ws.current.onopen = () => {
       console.log("WebSocket connected");
       setIsConnected(true);
-      sendMessage({ type: "join", id: playerId.current, name: playerName });
+      const initialX = Math.random() * 10 - 5; // Random X between -5 and 5
+      const initialZ = Math.random() * 10 - 5; // Random Z between -5 and 5
+      sendMessage({ type: "join", id: playerId.current, name: playerName, x: initialX, y: 0.6, z: initialZ, rx: 0, ry: 0, rz: 0 });
     };
 
     ws.current.onmessage = (event) => {
@@ -76,8 +78,8 @@ export const useWebSocket = (playerName: string = "anon") => {
       }
     };
 
-    ws.current.onclose = () => {
-      console.log("WebSocket disconnected");
+    ws.current.onclose = (event) => {
+      console.warn("WebSocket disconnected:", event.code, event.reason, event.wasClean);
       setIsConnected(false);
       // Attempt to reconnect after a delay
       setTimeout(() => {

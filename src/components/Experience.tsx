@@ -48,7 +48,7 @@ export default function Experience() {
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     setIsMobile(mobileCheck);
     console.log("Mobile check result:", mobileCheck);
-    console.log("isMobile state:", isMobile);
+    console.log("isMobile state (after update):"); // Log after update
 
     if (mobileCheck) {
       document.body.style.overflow = "hidden";
