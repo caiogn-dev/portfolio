@@ -1,40 +1,51 @@
 import { useGLTF } from "@react-three/drei";
 
-// Define as props, incluindo o controle da intensidade dos faróis
 type CarModelProps = {
   headlightsOn?: boolean;
 } & React.ComponentProps<"group">;
 
 export default function CarModel({ headlightsOn = false, ...props }: CarModelProps) {
+  // O 'as any' é mantido porque não conhecemos a estrutura exata do seu GLB.
   const { nodes, materials } = useGLTF("/models/car_compressed.glb") as any;
 
   return (
     <group {...props} dispose={null}>
-      <mesh
-        castShadow
-        receiveShadow
-        geometry={nodes.body.geometry}
-        material={materials.body}
-      />
-      {/* ... (outras meshes do carro) ... */}
-      <mesh
-        castShadow
-        receiveShadow
-        geometry={nodes.windows.geometry}
-        material={materials.window}
-      />
-      <mesh
-        castShadow
-        receiveShadow
-        geometry={nodes.wheels.geometry}
-        material={materials.wheels}
-      />
-      <mesh
-        castShadow
-        receiveShadow
-        geometry={nodes.lights.geometry}
-        material={materials.lights}
-      />
+      {/* CORREÇÃO: Adicionamos uma verificação.
+        Se 'nodes.body' existir, a malha será renderizada. Senão, será ignorada.
+        Faça isso para todas as partes do seu modelo.
+      */}
+      {nodes.body && (
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={nodes.body.geometry}
+          material={materials.body}
+        />
+      )}
+      {nodes.windows && (
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={nodes.windows.geometry}
+          material={materials.window}
+        />
+      )}
+      {nodes.wheels && (
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={nodes.wheels.geometry}
+          material={materials.wheels}
+        />
+      )}
+      {nodes.lights && (
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={nodes.lights.geometry}
+          material={materials.lights}
+        />
+      )}
 
       {/* Faróis */}
       <spotLight
@@ -43,7 +54,7 @@ export default function CarModel({ headlightsOn = false, ...props }: CarModelPro
         penumbra={0.8}
         distance={20}
         position={[0.35, 0.1, -1]}
-        intensity={headlightsOn ? 10 : 0} // Controlado pelo estado
+        intensity={headlightsOn ? 10 : 0}
         castShadow
       />
       <spotLight
@@ -52,7 +63,7 @@ export default function CarModel({ headlightsOn = false, ...props }: CarModelPro
         penumbra={0.8}
         distance={20}
         position={[-0.35, 0.1, -1]}
-        intensity={headlightsOn ? 10 : 0} // Controlado pelo estado
+        intensity={headlightsOn ? 10 : 0}
         castShadow
       />
     </group>
@@ -60,3 +71,4 @@ export default function CarModel({ headlightsOn = false, ...props }: CarModelPro
 }
 
 useGLTF.preload("/models/car_compressed.glb");
+
