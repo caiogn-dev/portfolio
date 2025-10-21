@@ -23,7 +23,7 @@ type Players = {
 };
 
 type Message =
-  | { type: "join"; id: string; name: string }
+  | { type: "join"; id: string; name: string; x: number; y: number; z: number; rx: number; ry: number; rz: number; }
   | { type: "state"; id: string; x: number; y: number; z: number; rx: number; ry: number; rz: number; v?: number }
   | { type: "snapshot"; players: Players }
   | { type: "playerJoined"; player: PlayerState }
