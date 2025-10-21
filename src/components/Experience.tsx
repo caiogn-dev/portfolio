@@ -78,61 +78,6 @@ export default function Experience() {
     document.dispatchEvent(event);
   }, []);
 
-  // WebSocket setup
-  useEffect(() => {
-    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("ws open");
-      ws.send(JSON.stringify({ type: "join", id: clientIdRef.current, name: "player" }));
-    };
-
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === "snapshot") {
-          const others = { ...msg.players };
-          delete others[clientIdRef.current];
-          setRemotePlayers(others);
-        } else if (msg.type === "playerJoined") {
-          const p = msg.player;
-          if (p.id !== clientIdRef.current) setRemotePlayers((prev) => ({ ...prev, [p.id]: p }));
-        } else if (msg.type === "update") {
-          const p = msg.player;
-          if (p.id !== clientIdRef.current) setRemotePlayers((prev) => ({ ...prev, [p.id]: p }));
-        } else if (msg.type === "playerLeft") {
-          const id = msg.id;
-          setRemotePlayers((prev) => {
-            const copy = { ...prev };
-            delete copy[id];
-            return copy;
-          });
-        }
-      } catch (err) {
-        console.warn("ws parse err", err);
-      }
-    };
-
-    ws.onclose = () => console.log("ws closed");
-    ws.onerror = (e) => console.warn("ws err", e);
-
-    return () => {
-      ws.close();
-      wsRef.current = null;
-    };
-  }, []);
-
-  // função para enviar estado do carro local
-  useEffect(() => {
-    sendStateRef.current = (state) => {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ type: "state", ...state, id: clientIdRef.current }));
-    };
-  }, []);
-
   // mobile joystick
   const handleMove = (data: any) => {
     const { x, y } = data;
@@ -142,10 +87,6 @@ export default function Experience() {
     simulateKey("KeyD", x > 0.3);
   };
   const handleStop = () => ["KeyW", "KeyS", "KeyA", "KeyD"].forEach((k) => simulateKey(k, false));
-
-  const onLocalState = useCallback((state: { x:number,y:number,z:number, rx:number,ry:number,rz:number, v?:number }) => {
-    sendStateRef.current(state);
-  }, []);
 
   return (
     <div
