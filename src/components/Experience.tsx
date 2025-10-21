@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, useCallback, useEffect } from "react";
+import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   KeyboardControls,
@@ -25,11 +25,19 @@ import SiteModal from "./SiteModal";
 import HUD from "./HUD";
 import { projects, type Project } from "@/data/projects";
 import { Joystick } from "react-joystick-component";
+import { v4 as uuidv4 } from "uuid";
+import NetworkCar from "./NetworkCar"; // componente para carros remotos
 
 export default function Experience() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  // --- network state ---
+  const wsRef = useRef<WebSocket | null>(null);
+  const clientIdRef = useRef<string>(uuidv4());
+  const [remotePlayers, setRemotePlayers] = useState<Record<string, any>>({});
+  const sendStateRef = useRef<(s: any) => void>(() => {});
 
   const isLowPower = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -38,13 +46,11 @@ export default function Experience() {
 
   const enableShadows = true;
 
-  // Detecta mobile
   useEffect(() => {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     setIsMobile(mobileCheck);
 
-    // Bloqueia o scroll e fixa em tela cheia no mobile
     if (mobileCheck) {
       document.body.style.overflow = "hidden";
       document.documentElement.style.overflow = "hidden";
@@ -77,7 +83,82 @@ export default function Experience() {
     document.dispatchEvent(event);
   }, []);
 
-  // Movimento do joystick
+  // WEBSOCKET SETUP
+  useEffect(() => {
+    // mude a URL para o host do seu servidor
+    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("ws open");
+      // enviar join
+      ws.send(JSON.stringify({ type: "join", id: clientIdRef.current, name: "player" }));
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === "snapshot") {
+          // msg.players => objeto de players
+          const others = { ...msg.players };
+          delete others[clientIdRef.current];
+          setRemotePlayers(others);
+        } else if (msg.type === "playerJoined") {
+          const p = msg.player;
+          if (p.id !== clientIdRef.current) {
+            setRemotePlayers((prev) => ({ ...prev, [p.id]: p }));
+          }
+        } else if (msg.type === "update") {
+          const p = msg.player;
+          if (p.id === clientIdRef.current) return;
+          setRemotePlayers((prev) => ({ ...prev, [p.id]: p }));
+        } else if (msg.type === "playerLeft") {
+          const id = msg.id;
+          setRemotePlayers((prev) => {
+            const copy = { ...prev };
+            delete copy[id];
+            return copy;
+          });
+        }
+      } catch (err) {
+        console.warn("ws parse err", err);
+      }
+    };
+
+    ws.onclose = () => console.log("ws closed");
+    ws.onerror = (e) => console.warn("ws err", e);
+
+    return () => {
+      ws.close();
+      wsRef.current = null;
+    };
+  }, []);
+
+  // função usada para enviar estado -- throttle/interval
+  useEffect(() => {
+    let sendInterval: number | null = null;
+    // função que enviará o state (troque por sua fonte de posição)
+    sendStateRef.current = (state) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: "state", ...state, id: clientIdRef.current }));
+    };
+
+    // Exemplo: se você quiser enviar automaticamente a cada 100ms, defina interval
+    // Mas só inicie o interval quando ws estiver aberto
+    sendInterval = window.setInterval(() => {
+      // quem fornece state local? -> o Car deve chamar sendStateRef.current({x,y,z,rx,ry,rz, v})
+      // Aqui não temos acesso direto - o ideal é ter o Car chamando a função.
+      // Exemplo de fallback: nada automático aqui.
+    }, 100);
+
+    return () => {
+      if (sendInterval) window.clearInterval(sendInterval);
+    };
+  }, []);
+
+  // JOYSTICK handlers (mesmo de antes)
   const handleMove = (data: any) => {
     const { x, y } = data;
     simulateKey("KeyW", y > 0.3);
@@ -89,6 +170,13 @@ export default function Experience() {
   const handleStop = () => {
     ["KeyW", "KeyS", "KeyA", "KeyD"].forEach((k) => simulateKey(k, false));
   };
+
+  // Função que o Car local deve chamar periodicamente para atualizar a rede
+  // Por exemplo, passe essa função como prop para <Car onNetworkUpdate={...} />
+  const onLocalState = useCallback((state: { x:number,y:number,z:number, rx:number,ry:number,rz:number, v?:number }) => {
+    // envia direto
+    sendStateRef.current(state);
+  }, []);
 
   return (
     <div
@@ -152,7 +240,15 @@ export default function Experience() {
                 interpolate
               >
                 <World />
-                <Car />
+                {/* Passe onNetworkUpdate para o Car local (implementação do Car precisa chamar isso) */}
+                <Car onNetworkUpdate={onLocalState} />
+
+                {/* Renderiza carros remotos */}
+                {Object.values(remotePlayers).map((p: any) => {
+                  // não renderiza o próprio player
+                  if (p.id === clientIdRef.current) return null;
+                  return <NetworkCar key={p.id} id={p.id} state={p} />;
+                })}
 
                 {projects.map((p) => (
                   <ProjectBillboard
@@ -187,37 +283,11 @@ export default function Experience() {
           <Loader />
           <HUD />
 
-          {/* ✅ MOBILE CONTROLS (100% visíveis e sobrepostos) */}
+          {/* MOBILE controls */}
           {isMobile && (
-            <div
-              className="fixed inset-0 z-[9999] pointer-events-none select-none"
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                zIndex: 9999,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-end",
-                padding: "3vh 4vw",
-                boxSizing: "border-box",
-                pointerEvents: "none",
-              }}
-            >
-              {/* Joystick à esquerda */}
-              <div
-                style={{
-                  pointerEvents: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "160px",
-                  height: "160px",
-                  marginBottom: "2vh",
-                }}
-              >
+            <div className="fixed inset-0 z-[9999] pointer-events-none select-none"
+                 style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", padding:"3vh 4vw", boxSizing:"border-box" }}>
+              <div style={{ pointerEvents: "auto", width: 160, height: 160 }}>
                 <Joystick
                   size={140}
                   baseColor="rgba(255,255,255,0.15)"
@@ -227,36 +297,17 @@ export default function Experience() {
                 />
               </div>
 
-              {/* Botão de Boost (acelerador) */}
-              <div
-                style={{
-                  pointerEvents: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "140px",
-                  height: "140px",
-                  marginBottom: "3vh",
-                }}
-              >
+              <div style={{ pointerEvents: "auto", width: 140, height: 140 }}>
                 <button
                   style={{
                     width: "100%",
                     height: "100%",
                     borderRadius: "50%",
-                    background:
-                      "linear-gradient(135deg, #00ff88 0%, #007f44 100%)",
-                    boxShadow:
-                      "0 0 25px rgba(0, 255, 136, 0.6), 0 0 50px rgba(0, 255, 136, 0.3)",
+                    background: "linear-gradient(135deg, #00ff88 0%, #007f44 100%)",
+                    boxShadow: "0 0 25px rgba(0, 255, 136, 0.6)",
                     border: "3px solid rgba(255,255,255,0.3)",
                     color: "white",
                     fontSize: "2rem",
-                    fontWeight: "bold",
-                    pointerEvents: "auto",
-                    touchAction: "none",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
                   }}
                   onTouchStart={() => simulateKey("ShiftLeft", true)}
                   onTouchEnd={() => simulateKey("ShiftLeft", false)}
@@ -271,7 +322,6 @@ export default function Experience() {
         <div className="w-full h-full bg-[#07080f]" />
       )}
 
-      {/* Modal HTML sobreposto */}
       <SiteModal
         open={modalOpen}
         onOpenChange={(v) => {
