@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, useCallback, useEffect } from "react";
+import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   KeyboardControls,
@@ -29,6 +29,8 @@ export default function Experience() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const joystickRef = useRef<HTMLDivElement>(null);
+  const knobRef = useRef<HTMLDivElement>(null);
 
   const isLowPower = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -37,7 +39,6 @@ export default function Experience() {
 
   const enableShadows = true;
 
-  // Detecta se é mobile
   useEffect(() => {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
@@ -49,15 +50,75 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
-  // Simula teclas para touch (emula teclado)
-  const simulateKey = (key: string, down: boolean) => {
+  // Simula teclas
+  const simulateKey = useCallback((key: string, down: boolean) => {
     const event = new KeyboardEvent(down ? "keydown" : "keyup", {
       key,
       code: key,
       bubbles: true,
     });
     document.dispatchEvent(event);
-  };
+  }, []);
+
+  // --- JOYSTICK ANALÓGICO ---
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const joystick = joystickRef.current;
+    const knob = knobRef.current;
+    if (!joystick || !knob) return;
+
+    let active = false;
+    let center = { x: 0, y: 0 };
+
+    const handleStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const rect = joystick.getBoundingClientRect();
+      center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      active = true;
+    };
+
+    const handleMove = (e: TouchEvent) => {
+      if (!active) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - center.x;
+      const dy = touch.clientY - center.y;
+      const distance = Math.min(Math.hypot(dx, dy), 40);
+      const angle = Math.atan2(dy, dx);
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance;
+      knob.style.transform = `translate(${x}px, ${y}px)`;
+
+      // Direções simuladas
+      const up = dy < -10;
+      const down = dy > 10;
+      const left = dx < -10;
+      const right = dx > 10;
+
+      simulateKey("KeyW", up);
+      simulateKey("KeyS", down);
+      simulateKey("KeyA", left);
+      simulateKey("KeyD", right);
+    };
+
+    const handleEnd = () => {
+      active = false;
+      knob.style.transform = "translate(0px, 0px)";
+      ["KeyW", "KeyS", "KeyA", "KeyD"].forEach((k) => simulateKey(k, false));
+    };
+
+    joystick.addEventListener("touchstart", handleStart);
+    joystick.addEventListener("touchmove", handleMove);
+    joystick.addEventListener("touchend", handleEnd);
+    joystick.addEventListener("touchcancel", handleEnd);
+
+    return () => {
+      joystick.removeEventListener("touchstart", handleStart);
+      joystick.removeEventListener("touchmove", handleMove);
+      joystick.removeEventListener("touchend", handleEnd);
+      joystick.removeEventListener("touchcancel", handleEnd);
+    };
+  }, [isMobile, simulateKey]);
 
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
@@ -146,64 +207,28 @@ export default function Experience() {
           <Loader />
           <HUD />
 
-          {/* ✅ Novo Mobile Pad aprimorado */}
+          {/* ✅ Mobile joystick + acelerador */}
           {isMobile && (
-            <div
-              className="fixed inset-0 z-[100] pointer-events-none flex flex-col justify-end pb-8 px-4"
-              style={{
-                background: "transparent",
-                touchAction: "none",
-              }}
-            >
-              {/* Controles de movimento à esquerda */}
-              <div className="absolute bottom-6 left-4 flex flex-col items-center space-y-2 pointer-events-auto">
-                <button
-                  className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
-                  onTouchStart={() => simulateKey("KeyW", true)}
-                  onTouchEnd={() => simulateKey("KeyW", false)}
-                >
-                  ↑
-                </button>
-                <div className="flex space-x-2">
-                  <button
-                    className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
-                    onTouchStart={() => simulateKey("KeyA", true)}
-                    onTouchEnd={() => simulateKey("KeyA", false)}
-                  >
-                    ←
-                  </button>
-                  <button
-                    className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
-                    onTouchStart={() => simulateKey("KeyD", true)}
-                    onTouchEnd={() => simulateKey("KeyD", false)}
-                  >
-                    →
-                  </button>
-                </div>
-                <button
-                  className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
-                  onTouchStart={() => simulateKey("KeyS", true)}
-                  onTouchEnd={() => simulateKey("KeyS", false)}
-                >
-                  ↓
-                </button>
+            <div className="fixed inset-0 z-[100] pointer-events-none select-none">
+              {/* Joystick circular */}
+              <div
+                ref={joystickRef}
+                className="absolute bottom-8 left-6 w-32 h-32 bg-white/10 rounded-full backdrop-blur-md pointer-events-auto flex items-center justify-center shadow-lg"
+              >
+                <div
+                  ref={knobRef}
+                  className="w-16 h-16 bg-white/40 rounded-full shadow-inner transition-transform duration-75"
+                />
               </div>
 
-              {/* Botões de ação à direita */}
-              <div className="absolute bottom-8 right-4 flex flex-col items-end space-y-4 pointer-events-auto">
+              {/* Botão acelerador */}
+              <div className="absolute bottom-12 right-8 pointer-events-auto">
                 <button
-                  className="w-16 h-16 bg-blue-500/70 backdrop-blur-md text-white rounded-full flex items-center justify-center active:scale-95 shadow-2xl transition-transform"
+                  className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center"
                   onTouchStart={() => simulateKey("ShiftLeft", true)}
                   onTouchEnd={() => simulateKey("ShiftLeft", false)}
                 >
                   ⚡
-                </button>
-                <button
-                  className="w-16 h-16 bg-green-500/70 backdrop-blur-md text-white rounded-full flex items-center justify-center active:scale-95 shadow-2xl transition-transform"
-                  onTouchStart={() => simulateKey("Enter", true)}
-                  onTouchEnd={() => simulateKey("Enter", false)}
-                >
-                  ⏎
                 </button>
               </div>
             </div>
