@@ -155,7 +155,7 @@ export default function Experience() {
 
                 {localPlayer && (
                    <Car
-                     initialPosition={[localPlayer.x, localPlayer.y, localPlayer.z]}
+                     initialPosition={[localPlayer.x, localPlayer.y + 0.5, localPlayer.z]} // Adicionado offset de 0.5 para spawnar acima do chão
                      initialRotation={[localPlayer.rx, localPlayer.ry, localPlayer.rz]}
                    />
                 )}
