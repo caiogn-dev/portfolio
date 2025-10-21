@@ -28,7 +28,7 @@ import { useWebSocket } from "@/lib/useWebSocket";
 import OtherPlayerCar from "./OtherPlayerCar";
 import { Joystick } from "react-joystick-component";
 
-// Definindo o tipo Player para clareza
+// CORREÇÃO: Adicionada a propriedade 'updatedAt' para corresponder ao tipo esperado
 type Player = {
     id: string;
     name: string;
@@ -38,6 +38,7 @@ type Player = {
     rx: number;
     ry: number;
     rz: number;
+    updatedAt: number;
 };
 
 export default function Experience() {
@@ -46,7 +47,6 @@ export default function Experience() {
   const { players, playerId } = useWebSocket();
   const [isMobile, setIsMobile] = useState(false);
 
-  // Acha os dados do jogador local quando eles chegam do servidor
   const localPlayer = players[playerId] as Player | undefined;
 
   const isLowPower = useMemo(() => {
@@ -153,8 +153,6 @@ export default function Experience() {
               <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} updateLoop="independent" interpolate>
                 <World />
 
-                {/* A MUDANÇA PRINCIPAL: Renderiza o carro local APENAS quando
-                    os dados dele chegam do servidor, passando a posição inicial. */}
                 {localPlayer && (
                    <Car
                      initialPosition={[localPlayer.x, localPlayer.y, localPlayer.z]}
@@ -162,10 +160,10 @@ export default function Experience() {
                    />
                 )}
 
-                {/* Renderiza os carros dos outros jogadores */}
                 {Object.values(players)
                   .filter((p) => p.id !== playerId)
                   .map((p) => (
+                    // A asserção 'as Player' agora funciona porque o tipo está correto
                     <OtherPlayerCar key={p.id} player={p as Player} />
                   ))}
 
@@ -245,3 +243,4 @@ export default function Experience() {
     </div>
   );
 }
+
