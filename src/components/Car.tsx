@@ -136,6 +136,7 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
 
       // Send player state to WebSocket server
       const rotation = body.rotation();
+      console.log("Sending player state:", { x: tr.x, y: tr.y, z: tr.z, rx: rotation.x, ry: rotation.y, rz: rotation.z, v: speedMs });
       sendPlayerState(tr.x, tr.y, tr.z, rotation.x, rotation.y, rotation.z, speedMs);
     }
 

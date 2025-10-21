@@ -29,6 +29,7 @@ import OtherPlayerCar from "./OtherPlayerCar";
 import { Joystick } from "react-joystick-component";
 
 export default function Experience() {
+  console.log("Experience component rendered.");
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const { players, playerId } = useWebSocket();
@@ -46,6 +47,8 @@ export default function Experience() {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     setIsMobile(mobileCheck);
+    console.log("Mobile check result:", mobileCheck);
+    console.log("isMobile state:", isMobile);
 
     if (mobileCheck) {
       document.body.style.overflow = "hidden";

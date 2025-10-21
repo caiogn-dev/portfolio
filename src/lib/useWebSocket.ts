@@ -53,6 +53,7 @@ export const useWebSocket = (playerName: string = "anon") => {
 
     ws.current.onmessage = (event) => {
       const message: Message = JSON.parse(event.data);
+      console.log("WebSocket message received:", message);
       switch (message.type) {
         case "snapshot":
           setPlayers(message.players);

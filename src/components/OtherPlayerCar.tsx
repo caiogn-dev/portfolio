@@ -31,6 +31,7 @@ export default function OtherPlayerCar({ player, ...props }: OtherPlayerCarProps
   useEffect(() => {
     if (rigidBodyRef.current) {
       const { x, y, z, rx, ry, rz } = player;
+      console.log("Updating other player car:", player);
       const body = rigidBodyRef.current;
       body.setNextKinematicTranslation(vec3({ x, y, z }));
       body.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)));
