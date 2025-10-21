@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 // MUDE ISSO para a URL do seu servidor quando fizer o deploy
-const WS_URL = "ws://localhost:8080"; // ou "wss://seu-servidor.onrender.com"
+const WS_URL = "https://websocket-api-s05v.onrender.com"; // ou "wss://seu-servidor.onrender.com"
 
 type PlayerState = {
   id: string;
