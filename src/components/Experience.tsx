@@ -48,7 +48,6 @@ export default function Experience() {
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     setIsMobile(mobileCheck);
     console.log("Mobile check result:", mobileCheck);
-    console.log("isMobile state (after update):"); // Log after update
 
     if (mobileCheck) {
       document.body.style.overflow = "hidden";
@@ -66,6 +65,8 @@ export default function Experience() {
       document.body.style.touchAction = "auto";
     };
   }, []);
+
+
 
   const handleOpenSite = useCallback((project: Project) => {
     setCurrentProject(project);
@@ -90,6 +91,8 @@ export default function Experience() {
     simulateKey("KeyD", x > 0.3);
   };
   const handleStop = () => ["KeyW", "KeyS", "KeyA", "KeyD"].forEach((k) => simulateKey(k, false));
+
+  console.log("Players state in Experience:", players);
 
   return (
     <div
