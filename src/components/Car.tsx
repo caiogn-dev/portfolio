@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { RigidBody } from "@react-three/rapier";
+import { RigidBody, RapierRigidBody } from "@react-three/rapier";
 import { useRef, useState } from "react";
 import * as THREE from "three";
 import { useKeyboardControls } from "@react-three/drei";
@@ -15,43 +15,24 @@ export const useCarStore = create<CarState>((set) => ({
   setSpeed: (v) => set({ speedKmh: v }),
 }));
 
-// damping helper
+// Helper para suavizar movimentos
 function damp(current: number, target: number, lambda: number, dt: number) {
   return THREE.MathUtils.lerp(current, target, 1 - Math.exp(-lambda * dt));
 }
 
-// --- NetworkCar (outros jogadores)
-export type NetworkCarProps = {
-  position: THREE.Vector3;
-  rotation: THREE.Euler;
-  id: string;
+// Propriedades que o carro do jogador local vai receber
+type CarProps = {
+  initialPosition: [number, number, number];
+  initialRotation: [number, number, number];
 };
 
-export function NetworkCar({ position, rotation }: NetworkCarProps) {
-  const meshRef = useRef<any>(null);
-
-  useFrame((_, delta) => {
-    if (!meshRef.current) return;
-    meshRef.current.position.lerp(position, 1 - Math.exp(-12 * delta));
-    meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, rotation.x, 1 - Math.exp(-12 * delta));
-    meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, rotation.y, 1 - Math.exp(-12 * delta));
-    meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, rotation.z, 1 - Math.exp(-12 * delta));
-  });
-
-  return (
-    <group ref={meshRef}>
-      <CarModel scale={0.5} rotation={[0, Math.PI, 0]} position={[0, -0.3, 0]} />
-    </group>
-  );
-}
-
-// --- Carro local
-export default function Car({ isLocal = true }: { isLocal?: boolean }) {
-  const ref = useRef<any>(null);
+// --- Carro do jogador local
+export default function Car({ initialPosition, initialRotation }: CarProps) {
+  const ref = useRef<RapierRigidBody>(null);
   const [, getKeys] = useKeyboardControls();
   const [dir] = useState(() => new THREE.Vector3());
   const setSpeed = useCarStore((s) => s.setSpeed);
-  const { sendPlayerState, playerId } = useWebSocket();
+  const { sendPlayerState } = useWebSocket();
 
   const steerRef = useRef(0);
   const throttleRef = useRef(0);
@@ -60,7 +41,7 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
 
   useFrame((state, delta) => {
     const body = ref.current;
-    if (!body || !isLocal) return;
+    if (!body) return;
 
     const { forward, backward, left, right, boost } = getKeys();
     const steerTarget = left ? 1 : right ? -1 : 0;
@@ -69,6 +50,7 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
     steerRef.current = damp(steerRef.current, steerTarget, 12, delta);
     throttleRef.current = damp(throttleRef.current, throttleTarget, 14, delta);
 
+    // Constantes da física do carro
     const accelFwd = boost ? 26 : 12;
     const accelRev = 12;
     const brake = 30;
@@ -103,15 +85,13 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
     const maxFwd = maxFwdK / 3.6;
     const maxRev = maxRevK / 3.6;
     if (vForward > maxFwd) {
-      const excess = vForward - maxFwd;
-      const corr = dir.clone().multiplyScalar(excess);
-      const newVel = vel.clone().sub(corr);
-      body.setLinvel({ x: newVel.x, y: newVel.y, z: newVel.z }, true);
+        const excess = vForward - maxFwd;
+        const corr = dir.clone().multiplyScalar(excess);
+        body.setLinvel(vel.clone().sub(corr), true);
     } else if (vForward < -maxRev) {
-      const excess = Math.abs(vForward) - maxRev;
-      const corr = dir.clone().multiplyScalar(-excess);
-      const newVel = vel.clone().sub(corr);
-      body.setLinvel({ x: newVel.x, y: newVel.y, z: newVel.z }, true);
+        const excess = Math.abs(vForward) - maxRev;
+        const corr = dir.clone().multiplyScalar(-excess);
+        body.setLinvel(vel.clone().sub(corr), true);
     }
 
     const movingSign = vForward >= 0 ? 1 : -1;
@@ -122,9 +102,10 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
     const av = body.angvel();
     body.setAngvel({ x: av.x * 0.92, y: av.y * 0.98, z: av.z * 0.92 }, true);
 
+    // Reset se cair do mapa
     const tr = body.translation();
     if (tr.y < -5) {
-      body.setTranslation({ x: 0, y: 0.6, z: 0 }, true);
+      body.setTranslation({ x: initialPosition[0], y: initialPosition[1], z: initialPosition[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
@@ -134,10 +115,10 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
       lastHudRef.current = now;
       setSpeed(speedMs * 3.6);
 
-      // Send player state to WebSocket server
+      // Envia o estado para o servidor
       const rotation = body.rotation();
-      console.log("Sending player state:", { x: tr.x, y: tr.y, z: tr.z, rx: rotation.x, ry: rotation.y, rz: rotation.z, v: speedMs });
-      sendPlayerState(tr.x, tr.y, tr.z, rotation.x, rotation.y, rotation.z, speedMs);
+      const euler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w));
+      sendPlayerState(tr.x, tr.y, tr.z, euler.x, euler.y, euler.z, speedMs);
     }
 
     // Camera follow
@@ -150,18 +131,18 @@ export default function Car({ isLocal = true }: { isLocal?: boolean }) {
     state.camera.lookAt(lookRef.current);
   });
 
-  if (!isLocal) return null;
-
   return (
     <RigidBody
       ref={ref}
       mass={1.2}
       linearDamping={0.45}
       angularDamping={0.9}
-      position={[0, 0.6, 0]}
+      position={initialPosition}
+      rotation={initialRotation}
       colliders="cuboid"
       restitution={0}
       friction={1}
+      canSleep={false}
     >
       <pointLight position={[0, -0.1, 0]} intensity={3} distance={6} color={"#00e5ff"} />
       <CarModel scale={0.5} position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]} />
