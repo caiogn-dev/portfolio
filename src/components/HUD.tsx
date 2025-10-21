@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useCarStore } from "./Car"; // mantém como está no seu Car.tsx
+import { useCarStore } from "@/store/useCar";
 import { usePortal } from "@/store/usePortal";
 import { useRouter } from "next/navigation";
 
 export default function HUD() {
-  const speed = useCarStore((s) => s.speedKmh);
+  // AQUI. A propriedade é 'speed'.
+  const speed = useCarStore((s) => s.speed);
   const active = usePortal((s) => s.active);
   const setLastEnter = usePortal((s) => s.setLastEnter);
   const lastEnter = usePortal((s) => s.lastEnter);
@@ -343,3 +344,4 @@ export default function HUD() {
     </>
   );
 }
+

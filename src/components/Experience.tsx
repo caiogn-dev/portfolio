@@ -19,7 +19,7 @@ import {
   SMAA,
 } from "@react-three/postprocessing";
 import World from "./World";
-import Car from "./Car";
+import {Car} from "./Car";
 import ProjectBillboard from "./ProjectBillboard";
 import SiteModal from "./SiteModal";
 import HUD from "./HUD";
@@ -55,7 +55,6 @@ export default function Experience() {
 
   const enableShadows = true;
 
-  // Detecção de dispositivo móvel
   useEffect(() => {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
@@ -65,10 +64,6 @@ export default function Experience() {
       document.body.style.overflow = "hidden";
       document.documentElement.style.overflow = "hidden";
       document.body.style.touchAction = "none";
-    } else {
-      document.body.style.overflow = "auto";
-      document.documentElement.style.overflow = "auto";
-      document.body.style.touchAction = "auto";
     }
 
     return () => {
@@ -83,7 +78,6 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
-  // Simula eventos de teclado para o joystick
   const simulateKey = useCallback((key: string, down: boolean) => {
     const eventName = down ? "keydown" : "keyup";
     const event = new KeyboardEvent(eventName, {
@@ -94,7 +88,6 @@ export default function Experience() {
     window.dispatchEvent(event);
   }, []);
   
-  // Handlers do Joystick
   const handleMove = (data: any) => {
     const { x, y } = data;
     simulateKey("KeyW", y > 0.3);
@@ -117,90 +110,92 @@ export default function Experience() {
       }}
     >
       {!modalOpen ? (
-        <KeyboardControls
-          map={[
-            { name: "forward", keys: ["ArrowUp", "KeyW"] },
-            { name: "backward", keys: ["ArrowDown", "KeyS"] },
-            { name: "left", keys: ["ArrowLeft", "KeyA"] },
-            { name: "right", keys: ["ArrowRight", "KeyD"] },
-            { name: "boost", keys: ["ShiftLeft", "ShiftRight"] },
-            { name: "interact", keys: ["Enter"] },
-          ]}
-        >
-          <Canvas
-            dpr={isLowPower ? [1, 1.25] : [1, 2]}
-            gl={{
-              antialias: !isLowPower,
-              powerPreference: "high-performance",
-              alpha: false,
-            }}
-            camera={{ position: [0, 6, 14], fov: 50 }}
-            shadows={enableShadows}
-            style={{ pointerEvents: modalOpen ? "none" : "auto" }}
+        <>
+          <KeyboardControls
+            map={[
+              { name: "forward", keys: ["ArrowUp", "KeyW"] },
+              { name: "backward", keys: ["ArrowDown", "KeyS"] },
+              { name: "left", keys: ["ArrowLeft", "KeyA"] },
+              { name: "right", keys: ["ArrowRight", "KeyD"] },
+              { name: "boost", keys: ["ShiftLeft", "ShiftRight"] },
+              { name: "interact", keys: ["Enter"] },
+              { name: "horn", keys: ["KeyH"] },
+              { name: "headlights", keys: ["KeyL"] },
+            ]}
           >
-            <color attach="background" args={["#07080f"]} />
-            <fog attach="fog" args={["#07080f", 25, 140]} />
-            <Environment files="/hdris/studio_small_08_4k.exr" background={false} />
-            <ambientLight intensity={0.15} />
-            <directionalLight
-              position={[10, 15, 10]}
-              intensity={0.6}
-              castShadow={enableShadows}
-              shadow-mapSize={[1024, 1024]}
-              shadow-camera-far={60}
-              shadow-bias={-0.0005}
-            />
-            <AdaptiveDpr />
-            <Suspense fallback={<Html center>carregando neon…</Html>}>
-              <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} updateLoop="independent" interpolate>
-                <World />
+            <Canvas
+              dpr={isLowPower ? [1, 1.25] : [1, 2]}
+              gl={{
+                antialias: !isLowPower,
+                powerPreference: "high-performance",
+                alpha: false,
+              }}
+              camera={{ position: [0, 6, 14], fov: 50 }}
+              shadows={enableShadows}
+              style={{ position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: modalOpen ? "none" : "auto" }}
+            >
+              <color attach="background" args={["#07080f"]} />
+              <fog attach="fog" args={["#07080f", 25, 140]} />
+              <Environment files="/hdris/studio_small_08_4k.exr" background={false} />
+              <ambientLight intensity={0.15} />
+              <directionalLight
+                position={[10, 15, 10]}
+                intensity={0.6}
+                castShadow={enableShadows}
+                shadow-mapSize={[1024, 1024]}
+                shadow-camera-far={60}
+                shadow-bias={-0.0005}
+              />
+              <AdaptiveDpr />
+              <Suspense fallback={<Html center>carregando neon…</Html>}>
+                <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} updateLoop="independent" interpolate>
+                  <World />
 
-                {localPlayer && (
-                   <Car
-                     initialPosition={[localPlayer.x, localPlayer.y + 0.5, localPlayer.z]}
-                     initialRotation={[localPlayer.rx, localPlayer.ry, localPlayer.rz]}
-                   />
-                )}
+                  {localPlayer && (
+                     <Car
+                       initialPosition={[localPlayer.x, localPlayer.y + 0.5, localPlayer.z]}
+                       initialRotation={[localPlayer.rx, localPlayer.ry, localPlayer.rz]}
+                     />
+                  )}
 
-                {Object.values(players)
-                  .filter((p) => p.id !== playerId)
-                  .map((p) => (
-                    <OtherPlayerCar key={p.id} player={p as Player} />
+                  {Object.values(players)
+                    .filter((p) => p.id !== playerId)
+                    .map((p) => (
+                      <OtherPlayerCar key={p.id} player={p as Player} />
+                    ))}
+
+                  {projects.map((p) => (
+                    <ProjectBillboard
+                      key={p.slug}
+                      slug={p.slug}
+                      title={p.title}
+                      position={p.position}
+                      tags={p.tags}
+                      thumb={p.thumb}
+                      url={p.url}
+                      onOpenSite={() => handleOpenSite(p)}
+                    />
                   ))}
+                </Physics>
 
-                {projects.map((p) => (
-                  <ProjectBillboard
-                    key={p.slug}
-                    slug={p.slug}
-                    title={p.title}
-                    position={p.position}
-                    tags={p.tags}
-                    thumb={p.thumb}
-                    url={p.url}
-                    onOpenSite={() => handleOpenSite(p)}
-                  />
-                ))}
-              </Physics>
+                <Preload all />
 
-              <Preload all />
-
-              {!isLowPower && (
-                <EffectComposer multisampling={0}>
-                  <SMAA />
-                  <Bloom intensity={0.46} mipmapBlur luminanceThreshold={0.78} luminanceSmoothing={0.2} />
-                  <ChromaticAberration offset={[0.0009, 0.0009]} />
-                  <Vignette eskil={false} offset={0.12} darkness={0.6} />
-                </EffectComposer>
-              )}
-            </Suspense>
-          </Canvas>
-
-          <Loader />
-          <HUD />
-
-          {/* Interface do Joystick para dispositivos móveis */}
+                {!isLowPower && (
+                  <EffectComposer multisampling={0}>
+                    <SMAA />
+                    <Bloom intensity={0.46} mipmapBlur luminanceThreshold={0.78} luminanceSmoothing={0.2} />
+                    <ChromaticAberration offset={[0.0009, 0.0009]} />
+                    <Vignette eskil={false} offset={0.12} darkness={0.6} />
+                  </EffectComposer>
+                )}
+              </Suspense>
+            </Canvas>
+            <Loader />
+            <HUD />
+          </KeyboardControls>
+          
           {isMobile && (
-            <div className="fixed inset-0 z-[9999] pointer-events-none select-none" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "3vh 4vw", boxSizing: "border-box" }}>
+            <div className="select-none" style={{ position: 'absolute', inset: 0, zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "3vh 4vw", boxSizing: "border-box", pointerEvents: 'none' }}>
               <div style={{ pointerEvents: "auto", width: 160, height: 160 }}>
                 <Joystick
                   size={140}
@@ -228,7 +223,7 @@ export default function Experience() {
               </div>
             </div>
           )}
-        </KeyboardControls>
+        </>
       ) : (
         <div className="w-full h-full bg-[#07080f]" />
       )}
