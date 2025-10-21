@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, useCallback } from "react";
+import { Suspense, useMemo, useState, useCallback, useEffect } from "react"; // Adicionei useEffect
 import { Canvas } from "@react-three/fiber";
 import { KeyboardControls, Environment, Html, Loader, AdaptiveDpr, Preload } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
@@ -15,6 +15,7 @@ import { projects, type Project } from "@/data/projects";
 export default function Experience() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [isMobile, setIsMobile] = useState(false); // Novo: detecta mobile
 
   const isLowPower = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -23,10 +24,26 @@ export default function Experience() {
 
   const enableShadows = true;
 
+  // Novo: Detecta mobile no mount
+  useEffect(() => {
+    const mobileCheck = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+    setIsMobile(mobileCheck);
+  }, []);
+
   const handleOpenSite = useCallback((project: Project) => {
     setCurrentProject(project);
     setModalOpen(true);
   }, []);
+
+  // Novo: Função pra simular eventos de teclado (pra touch enganar o KeyboardControls)
+  const simulateKey = (key: string, down: boolean) => {
+    const event = new KeyboardEvent(down ? "keydown" : "keyup", {
+      key,
+      code: key,
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+  };
 
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
@@ -103,6 +120,63 @@ export default function Experience() {
 
           <Loader />
           <HUD />
+
+          {/* Novo: Controles mobile (só aparece em mobile) */}
+          {isMobile && (
+            <div className="fixed bottom-0 left-0 right-0 flex justify-between p-4 z-50 pointer-events-auto">
+              {/* D-Pad para movimento */}
+              <div className="flex flex-col items-center space-y-2">
+                <button
+                  className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                  onTouchStart={() => simulateKey("KeyW", true)}
+                  onTouchEnd={() => simulateKey("KeyW", false)}
+                >
+                  ↑
+                </button>
+                <div className="flex space-x-2">
+                  <button
+                    className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                    onTouchStart={() => simulateKey("KeyA", true)}
+                    onTouchEnd={() => simulateKey("KeyA", false)}
+                  >
+                    ←
+                  </button>
+                  <button
+                    className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                    onTouchStart={() => simulateKey("KeyD", true)}
+                    onTouchEnd={() => simulateKey("KeyD", false)}
+                  >
+                    →
+                  </button>
+                </div>
+                <button
+                  className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                  onTouchStart={() => simulateKey("KeyS", true)}
+                  onTouchEnd={() => simulateKey("KeyS", false)}
+                >
+                  ↓
+                </button>
+              </div>
+
+              {/* Botões de ação à direita */}
+              <div className="flex flex-col space-y-4">
+                <button
+                  className="w-16 h-16 bg-blue-500/70 text-white rounded-full flex items-center justify-center active:bg-blue-500"
+                  onTouchStart={() => simulateKey("ShiftLeft", true)}
+                  onTouchEnd={() => simulateKey("ShiftLeft", false)}
+                >
+                  Boost
+                </button>
+                <button
+                  className="w-16 h-16 bg-green-500/70 text-white rounded-full flex items-center justify-center active:bg-green-500"
+                  onTouchStart={() => simulateKey("Enter", true)}
+                  onTouchEnd={() => simulateKey("Enter", false)}
+                >
+                  Enter
+                </button>
+              </div>
+            </div>
+          )}
         </KeyboardControls>
       ) : (
         <div className="w-full h-full bg-[#07080f]" />
