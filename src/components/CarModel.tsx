@@ -12,7 +12,7 @@ type CarModelProps = ThreeElements["group"] & {
 
 type GLTFResult = GLTF & { scene: THREE.Group };
 
-export default function CarModel({ url = "/models/car.glb", ...props }: CarModelProps) {
+export default function CarModel({ url = "/models/car_compressed.glb", ...props }: CarModelProps) {
   const { scene } = useGLTF(url) as GLTFResult;
 
   return (

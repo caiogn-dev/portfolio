@@ -11,14 +11,17 @@ import ProjectBillboard from "./ProjectBillboard";
 import SiteModal from "./SiteModal";
 import HUD from "./HUD";
 import { projects, type Project } from "@/data/projects";
+import { useWebSocket } from "@/lib/useWebSocket";
+import OtherPlayerCar from "./OtherPlayerCar";
 
 export default function Experience() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const { players, playerId } = useWebSocket();
 
   const isLowPower = useMemo(() => {
     if (typeof navigator === "undefined") return false;
-    return ((navigator as any).hardwareConcurrency || 4) < 4;
+    return (navigator.hardwareConcurrency || 4) < 4;
   }, []);
 
   const enableShadows = true;
@@ -75,6 +78,11 @@ export default function Experience() {
               >
                 <World />
                 <Car />
+                {Object.values(players)
+                  .filter((p) => p.id !== playerId)
+                  .map((p) => (
+                    <OtherPlayerCar key={p.id} player={p} />
+                  ))}
 
                 {projects.map((p) => (
                   <ProjectBillboard
@@ -90,14 +98,14 @@ export default function Experience() {
                 ))}
               </Physics>
 
-              <Preload all />
-
-              <EffectComposer multisampling={0}>
-                <SMAA />
-                <Bloom intensity={0.46} mipmapBlur luminanceThreshold={0.78} luminanceSmoothing={0.2} />
-                <ChromaticAberration offset={[0.0009, 0.0009]} />
-                <Vignette eskil={false} offset={0.12} darkness={0.6} />
-              </EffectComposer>
+              {!isLowPower && (
+                <EffectComposer multisampling={0}>
+                  <SMAA />
+                  <Bloom intensity={0.46} mipmapBlur luminanceThreshold={0.78} luminanceSmoothing={0.2} />
+                  <ChromaticAberration offset={[0.0009, 0.0009]} />
+                  <Vignette eskil={false} offset={0.12} darkness={0.6} />
+                </EffectComposer>
+              )}
             </Suspense>
           </Canvas>
 

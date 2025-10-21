@@ -1,6 +1,15 @@
-// (Server Component)
-import ExperienceClient from "@/components/ExperienceClient";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+
+const ExperienceClient = dynamic(
+  () => import("@/components/ExperienceClient"),
+  { ssr: false }
+);
 
 export default function Page() {
-  return <ExperienceClient />;
+  return (
+    <Suspense fallback={null}>
+      <ExperienceClient />
+    </Suspense>
+  );
 }

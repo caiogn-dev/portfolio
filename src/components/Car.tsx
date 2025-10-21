@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useKeyboardControls } from "@react-three/drei";
 import { create } from "zustand";
 import CarModel from "./CarModel";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 type CarState = { speedKmh: number; setSpeed: (v: number) => void };
 export const useCarStore = create<CarState>((set) => ({
@@ -25,6 +26,7 @@ export default function Car() {
   const [, getKeys] = useKeyboardControls();
   const [dir] = useState(() => new THREE.Vector3());
   const setSpeed = useCarStore((s) => s.setSpeed);
+  const { sendPlayerState, playerId } = useWebSocket();
 
   // estados suavizados de entrada
   const steerRef = useRef(0);     // -1..1
@@ -145,6 +147,10 @@ export default function Car() {
     if (now - lastHudRef.current > 80) { // ~12.5Hz
       lastHudRef.current = now;
       setSpeed(speedMs * 3.6);
+
+      // Send player state to WebSocket server
+      const rotation = body.rotation();
+      sendPlayerState(tr.x, tr.y, tr.z, rotation.x, rotation.y, rotation.z, speedMs);
     }
 
     // ===== CÂMERA FOLLOW SUAVE =====
