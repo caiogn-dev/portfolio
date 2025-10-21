@@ -1,57 +1,49 @@
-import { useGLTF } from "@react-three/drei";
-import { RigidBody, RapierRigidBody, vec3 } from "@react-three/rapier";
-import React, { useRef, useEffect } from "react";
+"use client";
+
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
-import type { GLTF } from "three-stdlib";
-import type { ThreeElements } from "@react-three/fiber";
+import CarModel from "./CarModel";
 
-type PlayerState = {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  z: number;
-  rx: number;
-  ry: number;
-  rz: number;
-  v?: number;
-  updatedAt: number;
+type Player = {
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    z: number;
+    rx: number;
+    ry: number;
+    rz: number;
+    updatedAt: number;
 };
 
-type OtherPlayerCarProps = ThreeElements["group"] & {
-  player: PlayerState;
-};
+export default function OtherPlayerCar({ player }: { player: Player }) {
+    const bodyRef = useRef<RapierRigidBody>(null);
 
-type GLTFResult = GLTF & { scene: THREE.Group };
+    useFrame(() => {
+        if (!bodyRef.current) return;
 
-export default function OtherPlayerCar({ player, ...props }: OtherPlayerCarProps) {
-  const { scene } = useGLTF("/models/car_compressed.glb") as GLTFResult;
-  const rigidBodyRef = useRef<RapierRigidBody>(null);
+        // Posição e rotação alvo vindas do servidor
+        const targetPos = new THREE.Vector3(player.x, player.y, player.z);
+        const targetRot = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(player.rx, player.ry, player.rz)
+        );
 
-  useEffect(() => {
-    if (rigidBodyRef.current) {
-      const { x, y, z, rx, ry, rz } = player;
-      console.log("Updating other player car:", player);
-      const body = rigidBodyRef.current;
-      body.setNextKinematicTranslation(vec3({ x, y, z }));
-      body.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)));
-    }
-  }, [player]);
+        // Move suavemente o corpo físico para a posição de rede
+        bodyRef.current.setNextKinematicTranslation(targetPos);
+        bodyRef.current.setNextKinematicRotation(targetRot);
+    });
 
-  return (
-    <RigidBody
-      // @ts-ignore
-      ref={rigidBodyRef}
-      colliders="cuboid"
-      // @ts-ignore
-      type="kinematicPosition"
-      position={[player.x, player.y, player.z]}
-      rotation={[player.rx, player.ry, player.rz]}
-      {...props}
-    >
-      <primitive object={scene.clone()} scale={0.5} rotation={[0, Math.PI, 0]} />
-    </RigidBody>
-  );
+    return (
+        <RigidBody
+            ref={bodyRef}
+            type="kinematicPosition" // Controlado por código, mas participa das colisões
+            colliders="cuboid"
+            restitution={0.8} // Mesma elasticidade do carro local
+            friction={0.8}
+        >
+            <CarModel scale={0.5} position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]} />
+        </RigidBody>
+    );
 }
-
-useGLTF.preload("/models/car_compressed.glb");

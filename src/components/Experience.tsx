@@ -28,7 +28,6 @@ import { useWebSocket } from "@/lib/useWebSocket";
 import OtherPlayerCar from "./OtherPlayerCar";
 import { Joystick } from "react-joystick-component";
 
-// CORREÇÃO: Adicionada a propriedade 'updatedAt' para corresponder ao tipo esperado
 type Player = {
     id: string;
     name: string;
@@ -56,6 +55,7 @@ export default function Experience() {
 
   const enableShadows = true;
 
+  // Detecção de dispositivo móvel
   useEffect(() => {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
@@ -83,6 +83,7 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
+  // Simula eventos de teclado para o joystick
   const simulateKey = useCallback((key: string, down: boolean) => {
     const eventName = down ? "keydown" : "keyup";
     const event = new KeyboardEvent(eventName, {
@@ -92,7 +93,8 @@ export default function Experience() {
     });
     window.dispatchEvent(event);
   }, []);
-
+  
+  // Handlers do Joystick
   const handleMove = (data: any) => {
     const { x, y } = data;
     simulateKey("KeyW", y > 0.3);
@@ -155,7 +157,7 @@ export default function Experience() {
 
                 {localPlayer && (
                    <Car
-                     initialPosition={[localPlayer.x, localPlayer.y + 0.5, localPlayer.z]} // Adicionado offset de 0.5 para spawnar acima do chão
+                     initialPosition={[localPlayer.x, localPlayer.y + 0.5, localPlayer.z]}
                      initialRotation={[localPlayer.rx, localPlayer.ry, localPlayer.rz]}
                    />
                 )}
@@ -163,7 +165,6 @@ export default function Experience() {
                 {Object.values(players)
                   .filter((p) => p.id !== playerId)
                   .map((p) => (
-                    // A asserção 'as Player' agora funciona porque o tipo está correto
                     <OtherPlayerCar key={p.id} player={p as Player} />
                   ))}
 
@@ -197,6 +198,7 @@ export default function Experience() {
           <Loader />
           <HUD />
 
+          {/* Interface do Joystick para dispositivos móveis */}
           {isMobile && (
             <div className="fixed inset-0 z-[9999] pointer-events-none select-none" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "3vh 4vw", boxSizing: "border-box" }}>
               <div style={{ pointerEvents: "auto", width: 160, height: 160 }}>
