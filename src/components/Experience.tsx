@@ -22,6 +22,7 @@ import World from "./World";
 import Car from "./Car";
 import ProjectBillboard from "./ProjectBillboard";
 import SiteModal from "./SiteModal";
+import HUD from "./HUD";
 import { projects, type Project } from "@/data/projects";
 import { Joystick } from "react-joystick-component";
 
@@ -42,6 +43,23 @@ export default function Experience() {
     const mobileCheck =
       /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     setIsMobile(mobileCheck);
+
+    // Bloqueia o scroll e fixa em tela cheia no mobile
+    if (mobileCheck) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+    } else {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+      document.body.style.touchAction = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+      document.body.style.touchAction = "auto";
+    };
   }, []);
 
   const handleOpenSite = useCallback((project: Project) => {
@@ -49,7 +67,7 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
-  // Função que simula eventos de teclado
+  // Simula teclas
   const simulateKey = useCallback((key: string, down: boolean) => {
     const event = new KeyboardEvent(down ? "keydown" : "keyup", {
       key,
@@ -59,7 +77,7 @@ export default function Experience() {
     document.dispatchEvent(event);
   }, []);
 
-  // --- Joystick handlers ---
+  // Movimento do joystick
   const handleMove = (data: any) => {
     const { x, y } = data;
     simulateKey("KeyW", y > 0.3);
@@ -73,7 +91,17 @@ export default function Experience() {
   };
 
   return (
-    <div style={{ height: "100vh", width: "100vw" }}>
+    <div
+      style={{
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        touchAction: "none",
+      }}
+    >
       {!modalOpen ? (
         <KeyboardControls
           map={[
@@ -157,14 +185,41 @@ export default function Experience() {
           </Canvas>
 
           <Loader />
+          <HUD />
 
-          {/* ✅ Joystick + Acelerador (mobile) */}
+          {/* ✅ MOBILE CONTROLS (100% visíveis e sobrepostos) */}
           {isMobile && (
-            <div className="fixed inset-0 z-[100] pointer-events-none select-none">
+            <div
+              className="fixed inset-0 z-[9999] pointer-events-none select-none"
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                zIndex: 9999,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                padding: "3vh 4vw",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+              }}
+            >
               {/* Joystick à esquerda */}
-              <div className="absolute bottom-8 left-6 pointer-events-auto flex items-center justify-center">
+              <div
+                style={{
+                  pointerEvents: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "160px",
+                  height: "160px",
+                  marginBottom: "2vh",
+                }}
+              >
                 <Joystick
-                  size={120}
+                  size={140}
                   baseColor="rgba(255,255,255,0.15)"
                   stickColor="rgba(255,255,255,0.9)"
                   move={handleMove}
@@ -172,10 +227,37 @@ export default function Experience() {
                 />
               </div>
 
-              {/* Botão de boost à direita */}
-              <div className="absolute bottom-14 right-10 pointer-events-auto">
+              {/* Botão de Boost (acelerador) */}
+              <div
+                style={{
+                  pointerEvents: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "140px",
+                  height: "140px",
+                  marginBottom: "3vh",
+                }}
+              >
                 <button
-                  className="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white text-2xl shadow-2xl active:scale-95 transition-transform flex items-center justify-center"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "50%",
+                    background:
+                      "linear-gradient(135deg, #00ff88 0%, #007f44 100%)",
+                    boxShadow:
+                      "0 0 25px rgba(0, 255, 136, 0.6), 0 0 50px rgba(0, 255, 136, 0.3)",
+                    border: "3px solid rgba(255,255,255,0.3)",
+                    color: "white",
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    pointerEvents: "auto",
+                    touchAction: "none",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
                   onTouchStart={() => simulateKey("ShiftLeft", true)}
                   onTouchEnd={() => simulateKey("ShiftLeft", false)}
                 >
