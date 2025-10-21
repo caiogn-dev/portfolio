@@ -22,7 +22,6 @@ import World from "./World";
 import Car from "./Car";
 import ProjectBillboard from "./ProjectBillboard";
 import SiteModal from "./SiteModal";
-import HUD from "./HUD";
 import { projects, type Project } from "@/data/projects";
 import { Joystick } from "react-joystick-component";
 
@@ -158,7 +157,6 @@ export default function Experience() {
           </Canvas>
 
           <Loader />
-          <HUD />
 
           {/* ✅ Joystick + Acelerador (mobile) */}
           {isMobile && (
