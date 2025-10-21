@@ -1,10 +1,23 @@
 "use client";
 
-import { Suspense, useMemo, useState, useCallback, useEffect } from "react"; // Adicionei useEffect
+import { Suspense, useMemo, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { KeyboardControls, Environment, Html, Loader, AdaptiveDpr, Preload } from "@react-three/drei";
+import {
+  KeyboardControls,
+  Environment,
+  Html,
+  Loader,
+  AdaptiveDpr,
+  Preload,
+} from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
-import { EffectComposer, Bloom, ChromaticAberration, Vignette, SMAA } from "@react-three/postprocessing";
+import {
+  EffectComposer,
+  Bloom,
+  ChromaticAberration,
+  Vignette,
+  SMAA,
+} from "@react-three/postprocessing";
 import World from "./World";
 import Car from "./Car";
 import ProjectBillboard from "./ProjectBillboard";
@@ -15,7 +28,7 @@ import { projects, type Project } from "@/data/projects";
 export default function Experience() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [isMobile, setIsMobile] = useState(false); // Novo: detecta mobile
+  const [isMobile, setIsMobile] = useState(false);
 
   const isLowPower = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -24,9 +37,10 @@ export default function Experience() {
 
   const enableShadows = true;
 
-  // Novo: Detecta mobile no mount
+  // Detecta se é mobile
   useEffect(() => {
-    const mobileCheck = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+    const mobileCheck =
+      /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
     setIsMobile(mobileCheck);
   }, []);
 
@@ -35,7 +49,7 @@ export default function Experience() {
     setModalOpen(true);
   }, []);
 
-  // Novo: Função pra simular eventos de teclado (pra touch enganar o KeyboardControls)
+  // Simula teclas para touch (emula teclado)
   const simulateKey = (key: string, down: boolean) => {
     const event = new KeyboardEvent(down ? "keydown" : "keyup", {
       key,
@@ -60,7 +74,11 @@ export default function Experience() {
         >
           <Canvas
             dpr={isLowPower ? [1, 1.25] : [1, 2]}
-            gl={{ antialias: !isLowPower, powerPreference: "high-performance", alpha: false }}
+            gl={{
+              antialias: !isLowPower,
+              powerPreference: "high-performance",
+              alpha: false,
+            }}
             camera={{ position: [0, 6, 14], fov: 50 }}
             shadows={enableShadows}
             style={{ pointerEvents: modalOpen ? "none" : "auto" }}
@@ -68,8 +86,10 @@ export default function Experience() {
             <color attach="background" args={["#07080f"]} />
             <fog attach="fog" args={["#07080f", 25, 140]} />
 
-            {/* Se não tiver o arquivo no /public/hdris, troque por preset="studio" */}
-            <Environment files="/hdris/studio_small_08_4k.exr" background={false} />
+            <Environment
+              files="/hdris/studio_small_08_4k.exr"
+              background={false}
+            />
 
             <ambientLight intensity={0.15} />
             <directionalLight
@@ -86,9 +106,9 @@ export default function Experience() {
             <Suspense fallback={<Html center>carregando neon…</Html>}>
               <Physics
                 gravity={[0, -9.81, 0]}
-                timeStep={1 / 60}          // ✅ step fixo (60Hz)
-                updateLoop="independent"   // ✅ física independente do render
-                interpolate                // ✅ interpola visualmente entre steps
+                timeStep={1 / 60}
+                updateLoop="independent"
+                interpolate
               >
                 <World />
                 <Car />
@@ -111,7 +131,12 @@ export default function Experience() {
 
               <EffectComposer multisampling={0}>
                 <SMAA />
-                <Bloom intensity={0.46} mipmapBlur luminanceThreshold={0.78} luminanceSmoothing={0.2} />
+                <Bloom
+                  intensity={0.46}
+                  mipmapBlur
+                  luminanceThreshold={0.78}
+                  luminanceSmoothing={0.2}
+                />
                 <ChromaticAberration offset={[0.0009, 0.0009]} />
                 <Vignette eskil={false} offset={0.12} darkness={0.6} />
               </EffectComposer>
@@ -121,13 +146,19 @@ export default function Experience() {
           <Loader />
           <HUD />
 
-          {/* Novo: Controles mobile (só aparece em mobile) */}
+          {/* ✅ Novo Mobile Pad aprimorado */}
           {isMobile && (
-            <div className="fixed bottom-0 left-0 right-0 flex justify-between p-4 z-50 pointer-events-auto">
-              {/* D-Pad para movimento */}
-              <div className="flex flex-col items-center space-y-2">
+            <div
+              className="fixed inset-0 z-[100] pointer-events-none flex flex-col justify-end pb-8 px-4"
+              style={{
+                background: "transparent",
+                touchAction: "none",
+              }}
+            >
+              {/* Controles de movimento à esquerda */}
+              <div className="absolute bottom-6 left-4 flex flex-col items-center space-y-2 pointer-events-auto">
                 <button
-                  className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                  className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
                   onTouchStart={() => simulateKey("KeyW", true)}
                   onTouchEnd={() => simulateKey("KeyW", false)}
                 >
@@ -135,14 +166,14 @@ export default function Experience() {
                 </button>
                 <div className="flex space-x-2">
                   <button
-                    className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                    className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
                     onTouchStart={() => simulateKey("KeyA", true)}
                     onTouchEnd={() => simulateKey("KeyA", false)}
                   >
                     ←
                   </button>
                   <button
-                    className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                    className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
                     onTouchStart={() => simulateKey("KeyD", true)}
                     onTouchEnd={() => simulateKey("KeyD", false)}
                   >
@@ -150,7 +181,7 @@ export default function Experience() {
                   </button>
                 </div>
                 <button
-                  className="w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center active:bg-white/40"
+                  className="w-14 h-14 bg-white/25 backdrop-blur-md text-white rounded-full flex items-center justify-center active:bg-white/50 shadow-lg"
                   onTouchStart={() => simulateKey("KeyS", true)}
                   onTouchEnd={() => simulateKey("KeyS", false)}
                 >
@@ -159,20 +190,20 @@ export default function Experience() {
               </div>
 
               {/* Botões de ação à direita */}
-              <div className="flex flex-col space-y-4">
+              <div className="absolute bottom-8 right-4 flex flex-col items-end space-y-4 pointer-events-auto">
                 <button
-                  className="w-16 h-16 bg-blue-500/70 text-white rounded-full flex items-center justify-center active:bg-blue-500"
+                  className="w-16 h-16 bg-blue-500/70 backdrop-blur-md text-white rounded-full flex items-center justify-center active:scale-95 shadow-2xl transition-transform"
                   onTouchStart={() => simulateKey("ShiftLeft", true)}
                   onTouchEnd={() => simulateKey("ShiftLeft", false)}
                 >
-                  Boost
+                  ⚡
                 </button>
                 <button
-                  className="w-16 h-16 bg-green-500/70 text-white rounded-full flex items-center justify-center active:bg-green-500"
+                  className="w-16 h-16 bg-green-500/70 backdrop-blur-md text-white rounded-full flex items-center justify-center active:scale-95 shadow-2xl transition-transform"
                   onTouchStart={() => simulateKey("Enter", true)}
                   onTouchEnd={() => simulateKey("Enter", false)}
                 >
-                  Enter
+                  ⏎
                 </button>
               </div>
             </div>
